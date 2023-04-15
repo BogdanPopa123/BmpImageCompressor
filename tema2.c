@@ -253,33 +253,34 @@ Tree* BFS(Tree root, int *index){
 
 int main(int argc, char **argv){
 
-    int size, channelSize, i, j;
-    char buffer[4];
+    if (strcmp(argv[1], "-c1") == 0 || strcmp(argv[1], "-c2") == 0) {
 
-    FILE *inputFile;
-    inputFile = fopen("Exemple/exemplu0.ppm", "rb");
+        int size, channelSize, i, j;
+        char buffer[4];
 
-    //read the text data from the file
-    fscanf(inputFile, "%s", buffer);
-    fscanf(inputFile, "%d %d", &size, &size);
-    fscanf(inputFile, "%d", &channelSize);
+        FILE *inputFile;
+        inputFile = fopen("Exemple/exemplu0.ppm", "rb");
 
-    // printf("%s@, %d %d\n", buffer, size, channelSize);
+        //read the text data from the file
+        fscanf(inputFile, "%s", buffer);
+        fscanf(inputFile, "%d %d", &size, &size);
+        fscanf(inputFile, "%d", &channelSize);
 
-    //read the binary data from the file in the pixel matrix
-    pixel pixelMap[size][size];
-    fseek(inputFile, 1, SEEK_CUR);
-    for (i = 0; i < size; i++) {
-        for (j = 0; j < size; j++) {
-            fread(&pixelMap[i][j].red, sizeof(unsigned char), 1, inputFile);
-            fread(&pixelMap[i][j].green, sizeof(unsigned char), 1, inputFile);
-            fread(&pixelMap[i][j].blue, sizeof(unsigned char), 1, inputFile);
+        // printf("%s@, %d %d\n", buffer, size, channelSize);
+
+        //read the binary data from the file in the pixel matrix
+        pixel pixelMap[size][size];
+        fseek(inputFile, 1, SEEK_CUR);
+        for (i = 0; i < size; i++) {
+            for (j = 0; j < size; j++) {
+                fread(&pixelMap[i][j].red, sizeof(unsigned char), 1, inputFile);
+                fread(&pixelMap[i][j].green, sizeof(unsigned char), 1, inputFile);
+                fread(&pixelMap[i][j].blue, sizeof(unsigned char), 1, inputFile);
+            }
         }
-    }
 
-    fclose(inputFile);
+        fclose(inputFile);
 
-    if(strcmp(argv[1], "-c1") == 0 || strcmp(argv[1], "-c2") == 0){
 
         Tree root = initTree();
         // printf("%p\n", root);
@@ -317,7 +318,11 @@ int main(int argc, char **argv){
                 }
             }
 
-            // printf("%d\n%d\n%d\n", quadTreeLevels, counter, maxSide);            
+            // printf("%d\n%d\n%d\n", quadTreeLevels, counter, maxSide); 
+            FILE *outputFile;
+            outputFile = fopen(argv[4], "wt");
+            fprintf(outputFile, "%d\n%d\n%d\n", quadTreeLevels, counter, maxSide);
+            fclose(outputFile);           
 
         } else if (strcmp(argv[1], "-c2") == 0) {
             FILE *outputFile;
@@ -410,6 +415,7 @@ int main(int argc, char **argv){
 
         pixel pixelMap[image_size][image_size];
         fillPixelMap(0, 0, image_size, image_size, root, pixelMap);
+        int j;
 
         for (i = 0; i < image_size; i++) {
             for (j = 0; j < image_size; j++) {
