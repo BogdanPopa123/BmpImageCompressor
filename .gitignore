@@ -4,3 +4,13 @@ decompressedOutput
 Exemple.zip
 output.txt
 tema2
+tests
+rezultat_valgrind.txt
+check.sh
+output3.txt
+quadtree
+debug.txt
+testul3.ppm
+testul3corect.ppm
+.gitignore
+valgrind-out.txt

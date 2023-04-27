@@ -2,7 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
+//Structura specifica pentru nodul din arborele de compresie
 typedef struct node{
     int level;
     unsigned char node_type;
@@ -12,20 +14,25 @@ typedef struct node{
     struct node *left_up, *right_up, *right_down, *left_down;
 }TreeNode, *Tree;
 
+//structura specifica pentru pixel, care va stoca valorile RGB
+//ale fiecarui pixel din imaginea PPM
 typedef struct{
     unsigned char red, green, blue;
 }pixel;
 
+//implementarea unui element de coada, care este o lista simpla
 typedef struct QueueNode{
     Tree elem;
     struct QueueNode *next;
 }QueueNode, *PQueueNode;
 
+//implementarea cozii
 typedef struct Queue{
     PQueueNode front;
     PQueueNode rear;
 }QueueSize, *Queue;
 
+//functie de initializare a cozii
 Queue createQueue() {
     Queue queue = (Queue)malloc(sizeof(QueueSize));
     queue->front = NULL;
@@ -33,10 +40,12 @@ Queue createQueue() {
     return queue;
 }
 
+//verific daca este coada goala
 int isQueueEmpty(Queue queue) {
     return (queue->front == NULL);
 }
 
+//adaug un nou element in coada
 void enqueue(Queue queue, Tree elem) {
     PQueueNode new_node = (PQueueNode)malloc(sizeof(QueueNode));
     new_node->elem = elem;
@@ -50,9 +59,9 @@ void enqueue(Queue queue, Tree elem) {
     }
 }
 
+//scot ultimul element din coada
 Tree dequeue(Queue queue) {
     if (isQueueEmpty(queue)) {
-        // printf("Queue is empty.\n");
         return NULL;
     }
     PQueueNode front_node = queue->front;
@@ -65,22 +74,23 @@ Tree dequeue(Queue queue) {
     return elem;
 }
 
+//returnez ce se afla in fata cozii
 Tree front(Queue queue) {
     if (isQueueEmpty(queue)) {
-        // printf("Queue is empty.\n");
         return NULL;
     }
     return queue->front->elem;
 }
 
+//returnez ce se afla in spatele cozii
 Tree rear(Queue queue) {
     if (isQueueEmpty(queue)) {
-        // printf("Queue is empty.\n");
         return NULL;
     }
     return queue->rear->elem;
 }
 
+//initializez un nod al arborelui de compresie
 Tree initTree()
 {
     Tree t = (Tree) malloc(sizeof(TreeNode));
@@ -88,31 +98,48 @@ Tree initTree()
     t->right_up = NULL;
     t->right_down = NULL;
     t->left_down = NULL;
+    t->red_value = 0;
+    t->green_value = 0;
+    t->blue_value = 0;
+    t->node_type = 0;
     return t;
 }
 
-int get_mean(int x, int y, int size, int submatrixSize,  pixel (*pixelMap)[size]);
+unsigned long long get_mean(int x, int y, int size, int submatrixSize,
+pixel **pixelMap);
 
-void solve(int x, int y, int size, int submatrixSize, Tree currentNode, 
-pixel (*pixelMap)[size], int param){
+//functie recursiva pentru a construi arborele de compresie
+void solve(int x, int y, int size, int submatrixSize, Tree currentNode,
+pixel **pixelMap, int param){
     int mean = get_mean(x, y, size, submatrixSize, pixelMap);
 
-    // printf("Current node address is %p@\n", currentNode);
-    // printf("Current x and y are : %d %d\n", x, y);
-    // printf("Current submatrix size is : %d\n", submatrixSize);
-    // printf("Current mean is : %d\n", mean);
-
-    //aflam la ce nivel se afla nodul curent;
-    currentNode->level = size/submatrixSize;
+    currentNode->level = (int)(log2(size/submatrixSize) + 1);
 
     //daca media este mai mica sau egala decat pragul nu este
     //nevoie de inca o divizare, deci ne aflam la o frunza finala
     if (mean <= param) {
-        // printf("Mean %d <= param %d so initialize a terminal leaf\n\n\n", mean, param);
         currentNode->node_type = 1;
-        currentNode->red_value = pixelMap[x][y].red;
-        currentNode->green_value = pixelMap[x][y].green;
-        currentNode->blue_value = pixelMap[x][y].blue;
+
+        //calculam culoarea medie a blocului in care ne aflam
+        //si o atribuim frunzei din arbore
+        unsigned long long red_mean = 0, green_mean = 0, blue_mean = 0;
+        int i, j;
+
+        for (i = x; i < x + submatrixSize; i++) {
+            for (j = y; j < y + submatrixSize; j++) {
+                red_mean = red_mean + pixelMap[i][j].red;
+                green_mean = green_mean + pixelMap[i][j].green;
+                blue_mean = blue_mean + pixelMap[i][j].blue;
+            }
+        }
+
+        red_mean = red_mean / (submatrixSize * submatrixSize);
+        green_mean = green_mean / (submatrixSize * submatrixSize);
+        blue_mean = blue_mean / (submatrixSize * submatrixSize);
+
+        currentNode->red_value = red_mean;
+        currentNode->green_value = green_mean;
+        currentNode->blue_value = blue_mean;
 
         currentNode->left_up = NULL;
         currentNode->right_up = NULL;
@@ -122,7 +149,6 @@ pixel (*pixelMap)[size], int param){
     //daca media este mai mare decat pragul atunci tipul nodului
     //curent va fi 0 si va fi nevoie de divizare
     else {
-        // printf("Mean %d > param %d so initialize a non terminal node\n\n\n", mean, param);
         currentNode->node_type = 0;
 
         Tree leftUp = initTree();
@@ -135,16 +161,27 @@ pixel (*pixelMap)[size], int param){
         currentNode->right_down = rightDown;
         currentNode->left_down = leftDown;
 
-        solve(x, y, size, submatrixSize / 2, currentNode->left_up, pixelMap, param);
-        solve(x, y + submatrixSize / 2, size, submatrixSize / 2, currentNode->right_up, pixelMap, param);
-        solve(x + submatrixSize / 2, y + submatrixSize / 2, size, submatrixSize / 2, currentNode->right_down, pixelMap, param);
-        solve(x + submatrixSize / 2, y, size, submatrixSize / 2, currentNode->left_down, pixelMap, param);
+        solve(x, y, size, submatrixSize / 2, currentNode->left_up,
+        pixelMap, param);
+
+        solve(x, y + submatrixSize / 2, size, submatrixSize / 2,
+        currentNode->right_up, pixelMap, param);
+
+        solve(x + submatrixSize / 2, y + submatrixSize / 2, size,
+        submatrixSize / 2, currentNode->right_down, pixelMap, param);
+
+        solve(x + submatrixSize / 2, y, size, submatrixSize / 2,
+        currentNode->left_down, pixelMap, param);
     }
 }
 
+//functie cu care construim imaginea sub forma unei matrici, plecand
+//de la arborele de compresie
 void fillPixelMap(int x, int y, int size, int submatrixSize, Tree currentNode,
-pixel (*pixelMap)[size])
+pixel **pixelMap)
 {
+    //daca nu ne aflam pe un nod final, vom imparti blocul
+    //curent in 4 blocuri si vom apela recurisv functia
     if (currentNode->node_type == 0) {
         fillPixelMap(x, y, size, submatrixSize / 2, 
         currentNode->left_up, pixelMap);
@@ -154,7 +191,10 @@ pixel (*pixelMap)[size])
          submatrixSize / 2, currentNode->right_down, pixelMap);
         fillPixelMap(x + submatrixSize / 2, y, size, submatrixSize / 2,
         currentNode->left_down, pixelMap);
-    } else if (currentNode->node_type == 1) {
+    } 
+    //daca ne aflam pe o frunza finala a arborelui
+    //atunci punem in blocul curent culorile specificate
+    else if (currentNode->node_type == 1) {
         int i, j;
         for (i = x; i < x + submatrixSize; i++) {
             for (j = y; j < y + submatrixSize; j++) {
@@ -166,10 +206,11 @@ pixel (*pixelMap)[size])
     }
 }
 
-int get_mean(int x, int y, int size, int submatrixSize,  pixel (*pixelMap)[size]) {
-    int i, j, red = 0, green = 0, blue = 0, mean = 0;
-
-    // printf("Mean function args x y subsize: %d %d %d\n", x, y, submatrixSize);
+//functia de calculare a scorului de similaritate
+unsigned long long get_mean(int x, int y, int size, int submatrixSize,
+pixel **pixelMap) {
+    int i, j;
+    unsigned long long red = 0, green = 0, blue = 0, mean = 0;
 
     for (i = x; i < x + submatrixSize; i++) {
         for (j = y; j < y + submatrixSize; j++) {
@@ -181,13 +222,15 @@ int get_mean(int x, int y, int size, int submatrixSize,  pixel (*pixelMap)[size]
     red = red / (submatrixSize * submatrixSize);
     green = green / (submatrixSize * submatrixSize);
     blue = blue / (submatrixSize * submatrixSize);
-    // printf("means of R: %d   G: %d   B: %d   \n", red, green, blue);
 
     for (i = x; i < x + submatrixSize; i++) {
         for (j = y; j < y + submatrixSize; j++) {
-            mean = mean + (red - pixelMap[i][j].red) * (red - pixelMap[i][j].red) +
-            (green - pixelMap[i][j].green) * (green - pixelMap[i][j].green) +
-            (blue - pixelMap[i][j].blue) * (blue - pixelMap[i][j].blue);
+            mean = mean + (red - pixelMap[i][j].red) *
+            (red - pixelMap[i][j].red) +
+            (green - pixelMap[i][j].green) *
+            (green - pixelMap[i][j].green) +
+            (blue - pixelMap[i][j].blue) *
+            (blue - pixelMap[i][j].blue);
         }
     }
 
@@ -195,14 +238,31 @@ int get_mean(int x, int y, int size, int submatrixSize,  pixel (*pixelMap)[size]
     return mean;
 }
 
-Tree* BFS(Tree root, int *index){
-    // Tree t;
+//functie care calculeaza numarul de noduri dintr un quadtree
+int countNodes(Tree root) {
     if (root == NULL) {
-        // printf("Arbore vid\n");
+        return 0;
+    } else {
+        int count = 1;
+        count += countNodes(root->left_up);
+        count += countNodes(root->right_up);
+        count += countNodes(root->right_down);
+        count += countNodes(root->left_down);
+        return count;
+    }
+}
+
+//aceasta functie este folosita pentru a parcurge toate elementele
+//din quadtree si a le returna intr un array
+//parcuregerea se realizeaza pe latime
+Tree* BFS(Tree root, int *index){
+    if (root == NULL) {
         return NULL;
     }
 
-    Tree* quadTreeArray = (Tree*) malloc(sizeof(Tree));
+    int counter = countNodes(root);
+
+    Tree* quadTreeArray = (Tree*) malloc(counter * sizeof(Tree));
     *index = 1;
 
     Queue queue = createQueue();
@@ -211,106 +271,100 @@ Tree* BFS(Tree root, int *index){
 
     while (!isQueueEmpty(queue)) {
         Tree node = dequeue(queue);
-        // printf("Node type is : %d", node->node_type);
         if (node->node_type == 1){
-            // printf("  {%d %d %d}", node->red_value, node->green_value, node->blue_value);
         }
-        // printf("\n");
 
         if (node->left_up != NULL) {
             enqueue(queue, node->left_up);
             (*index)++;
-            quadTreeArray = realloc(quadTreeArray, (*index) * sizeof(Tree));
             quadTreeArray[(*index)-1] = node->left_up;
             
         }
         if (node->right_up != NULL) {
             enqueue(queue, node->right_up);
             (*index)++;
-            quadTreeArray = realloc(quadTreeArray, (*index) * sizeof(Tree));
             quadTreeArray[(*index)-1] = node->right_up;
         }
         if (node->right_down != NULL) {
             enqueue(queue, node->right_down);
             (*index)++;
-            quadTreeArray = realloc(quadTreeArray, (*index) * sizeof(Tree));
             quadTreeArray[(*index)-1] = node->right_down;
         }
         if (node->left_down != NULL) {
             enqueue(queue, node->left_down);
             (*index)++;
-            quadTreeArray = realloc(quadTreeArray, (*index) * sizeof(Tree));
             quadTreeArray[(*index)-1] = node->left_down;
         }
     }
-
     free(queue);
-
-    // (*index)--;
 
     return quadTreeArray; 
 }
 
 int main(int argc, char **argv){
 
+    //pentru cerintele 1 si 2 vom avea nevoie de contruirea
+    //unui quadtree, iar aceste cerinte au acelasi numar
+    //de argumente in linie de comanda, de aceea 
+    //aceste doua cerinte vor fi tratate similar
     if (strcmp(argv[1], "-c1") == 0 || strcmp(argv[1], "-c2") == 0) {
 
-        int size, channelSize, i, j;
+        int channelSize, i, j;
         char buffer[4];
+        unsigned int size;
 
         FILE *inputFile;
-        inputFile = fopen("Exemple/exemplu0.ppm", "rb");
+        inputFile = fopen(argv[3], "rb");
 
         //read the text data from the file
         fscanf(inputFile, "%s", buffer);
         fscanf(inputFile, "%d %d", &size, &size);
         fscanf(inputFile, "%d", &channelSize);
 
-        // printf("%s@, %d %d\n", buffer, size, channelSize);
-
         //read the binary data from the file in the pixel matrix
-        pixel pixelMap[size][size];
+        pixel **pixelMap = malloc(size * sizeof(pixel *));
+        for (i = 0; i < size; i++) {
+            pixelMap[i] = malloc(size * sizeof(pixel));
+        }
+
         fseek(inputFile, 1, SEEK_CUR);
         for (i = 0; i < size; i++) {
             for (j = 0; j < size; j++) {
-                fread(&pixelMap[i][j].red, sizeof(unsigned char), 1, inputFile);
-                fread(&pixelMap[i][j].green, sizeof(unsigned char), 1, inputFile);
-                fread(&pixelMap[i][j].blue, sizeof(unsigned char), 1, inputFile);
+                fread(&pixelMap[i][j].red, sizeof(unsigned char),
+                1, inputFile);
+                fread(&pixelMap[i][j].green, sizeof(unsigned char),
+                1, inputFile);
+                fread(&pixelMap[i][j].blue, sizeof(unsigned char),
+                1, inputFile);
             }
         }
-
         fclose(inputFile);
 
-
         Tree root = initTree();
-        // printf("%p\n", root);
 
         int param = atoi(argv[2]);
 
+        //aceasta functie creeaza arborele de compresie
         solve(0, 0, size, size, root, pixelMap, param);
 
         int arraySize;
         Tree* quadTreeArray = BFS(root, &arraySize);
 
-        for (int i = 0; i < arraySize; i++) {
-            // printf("At index %d node is of type %d", i, quadTreeArray[i]->node_type);
-            if (quadTreeArray[i]->node_type == 1) {
-                // printf(" {%d %d %d}", quadTreeArray[i]->red_value, quadTreeArray[i]->green_value, quadTreeArray[i]->blue_value);
-            }
-            // printf("  Level %d ", quadTreeArray[i]->level);
-            // printf("\n");
-        }
-
         //rezolvam cerinta 1
         if (strcmp(argv[1], "-c1") == 0) {
+            //inaltimea arborelui este echivalenta cu inaltimea
+            //la care se afla ultimul nod din arbore
             int quadTreeLevels = quadTreeArray[arraySize-1]->level;
 
+            //primul nod de tip 1 va avea latura maxima, de aceea
+            //il vom cauta
             i = 0;
             while (quadTreeArray[i]->node_type == 0) {
                 i++;
             }
-            int maxSide = size / (quadTreeArray[i]->level);
+            int maxSide = size>>(quadTreeArray[i]->level - 1);
 
+            //numaram nodurile de tip 1
             int counter = 0;
             for (i = 0; i < arraySize; i++) {
                 if (quadTreeArray[i]->node_type == 1) {
@@ -318,31 +372,53 @@ int main(int argc, char **argv){
                 }
             }
 
-            // printf("%d\n%d\n%d\n", quadTreeLevels, counter, maxSide); 
+            //afisam rezultatele calculate pentru taskul c1
             FILE *outputFile;
             outputFile = fopen(argv[4], "wt");
-            fprintf(outputFile, "%d\n%d\n%d\n", quadTreeLevels, counter, maxSide);
-            fclose(outputFile);           
+            fprintf(outputFile, "%d\n%d\n%d\n", quadTreeLevels,
+            counter, maxSide);
+            fclose(outputFile);
 
         } else if (strcmp(argv[1], "-c2") == 0) {
             FILE *outputFile;
             outputFile = fopen(argv[argc-1], "wb");
 
-            fwrite(&size, sizeof(int), 1, outputFile);
+            //pentru taskul c2, scriem fisierul in forma comprimata
+            fwrite(&size, sizeof(unsigned int), 1, outputFile);
             for (i = 0; i < arraySize; i++) {
-                fwrite(&(quadTreeArray[i]->node_type), sizeof(unsigned char), 1, outputFile);
+                fwrite(&(quadTreeArray[i]->node_type), sizeof(unsigned char),
+                1, outputFile);
                 if (quadTreeArray[i]->node_type == 1) {
-                    fwrite(&(quadTreeArray[i]->red_value), sizeof(unsigned char), 1, outputFile);
-                    fwrite(&(quadTreeArray[i]->green_value), sizeof(unsigned char), 1, outputFile);
-                    fwrite(&(quadTreeArray[i]->blue_value), sizeof(unsigned char), 1, outputFile);
+                    fwrite(&(quadTreeArray[i]->red_value),
+                    sizeof(unsigned char), 1, outputFile);
+
+                    fwrite(&(quadTreeArray[i]->green_value),
+                    sizeof(unsigned char), 1, outputFile);
+
+                    fwrite(&(quadTreeArray[i]->blue_value),
+                    sizeof(unsigned char), 1, outputFile);
                 }
             }
-
             fclose(outputFile);
         }
+
+        //free pixelmap and tree
+        for (i = 0; i < size; i++) {
+            free(pixelMap[i]);
+        }
+        free(pixelMap);
+
+        for (i = 0; i < arraySize ; i++) {
+            free(quadTreeArray[i]);
+        }
+        free(quadTreeArray);
+
         
     } else if (strcmp(argv[1], "-d") == 0) {
-        // printf("Solving the decompress\n");
+
+        //citim datele din fisierul comprimat si le punem
+        //intr un array
+
         FILE *inputFile;
         inputFile = fopen(argv[2], "rb");
 
@@ -354,11 +430,17 @@ int main(int argc, char **argv){
         while (!feof(inputFile)) {
             quadArrayTree = realloc(quadArrayTree, (i + 1) * sizeof(Tree));
             quadArrayTree[i] = initTree();
-            fread(&(quadArrayTree[i])->node_type, sizeof(unsigned char), 1, inputFile);
+            fread(&(quadArrayTree[i])->node_type, sizeof(unsigned char),
+            1, inputFile);
             if (quadArrayTree[i]->node_type == 1) {
-                fread(&(quadArrayTree[i])->red_value, sizeof(unsigned char), 1, inputFile);
-                fread(&(quadArrayTree[i])->green_value, sizeof(unsigned char), 1, inputFile);
-                fread(&(quadArrayTree[i])->blue_value, sizeof(unsigned char), 1, inputFile);
+                fread(&(quadArrayTree[i])->red_value,
+                sizeof(unsigned char), 1, inputFile);
+
+                fread(&(quadArrayTree[i])->green_value,
+                sizeof(unsigned char), 1, inputFile);
+
+                fread(&(quadArrayTree[i])->blue_value,
+                sizeof(unsigned char), 1, inputFile);
 
             }
             i++;
@@ -367,14 +449,9 @@ int main(int argc, char **argv){
         fclose(inputFile);
 
         int arraySize = i-1;
-        for (i = 0; i < arraySize; i++) {
-            // printf("At index %d node is of type %d", i, quadArrayTree[i]->node_type);
-            if (quadArrayTree[i]->node_type == 1) {
-                // printf(" {%d %d %d}", quadArrayTree[i]->red_value, quadArrayTree[i]->green_value, quadArrayTree[i]->blue_value);
-            }
-            // printf("\n");
-        }
 
+        //construim quadtree ul pe baza array ului furnizat de
+        //fisierul de input
         Tree root = quadArrayTree[0];
         i = 1;
         int level = 1;
@@ -401,28 +478,20 @@ int main(int argc, char **argv){
                     enqueue(queue, node->left_down);
                 }
             }
+            free(queue);
         }
 
-        // printf("%d \n",root->node_type);
-        // printf("%d ",root->left_up->node_type);
-        // printf(" {%d %d %d} ", root->left_up->red_value,root->left_up->green_value, root->left_up->blue_value);
-        // printf("%d ",root->right_up->node_type);
-        // printf(" {%d %d %d} ", root->right_up->red_value,root->right_up->green_value, root->right_up->blue_value);
-        // printf("%d ",root->right_down->node_type);
-        // printf(" {%d %d %d} ", root->right_down->red_value,root->right_down->green_value, root->right_down->blue_value);
-        // printf("%d ",root->left_down->node_type);
-        // printf(" {%d %d %d} \n\n\n", root->left_down->red_value,root->left_down->green_value, root->left_down->blue_value);
-
-        pixel pixelMap[image_size][image_size];
+        //alocam memorie pentru fisierul continutul priopriu zis
+        //al fisierului ppm si populam aceasta matrice
+        //pe baza arborelui cuaternar
+        pixel **pixelMap = malloc(image_size * sizeof(pixel *));
+        for (i = 0; i < image_size; i++) {
+            pixelMap[i] = malloc(image_size * sizeof(pixel));
+        }
         fillPixelMap(0, 0, image_size, image_size, root, pixelMap);
         int j;
 
-        for (i = 0; i < image_size; i++) {
-            for (j = 0; j < image_size; j++) {
-                // printf("{%d %d %d} ", pixelMap[i][j].red, pixelMap[i][j].green, pixelMap[i][j].blue);
-            }
-            // printf("\n");
-        }
+        //scriem datele in fisier
 
         FILE *outputFile;
         outputFile = fopen(argv[3], "wb");
@@ -430,7 +499,6 @@ int main(int argc, char **argv){
         fwrite(str, sizeof(char), 3, outputFile);
         char str2[20];
         sprintf(str2, "%d", image_size);
-        // printf("IMAGE SIZE AS STRING %s@\n", str2);
         fwrite(str2, sizeof(char), strlen(str2), outputFile);
         char space[] = " ";
         fwrite(space, sizeof(char), 1, outputFile);
@@ -443,18 +511,30 @@ int main(int argc, char **argv){
 
         for (i = 0; i < image_size; i++) {
             for (j = 0; j < image_size; j++) {
-                fwrite(&(pixelMap[i][j].red), sizeof(unsigned char), 1, outputFile);
-                fwrite(&(pixelMap[i][j].green), sizeof(unsigned char), 1, outputFile);
-                fwrite(&(pixelMap[i][j].blue), sizeof(unsigned char), 1, outputFile);
-            }
-            // fwrite(newline, sizeof(char), 1, outputFile);
-            
+                fwrite(&(pixelMap[i][j].red), sizeof(unsigned char),
+                1, outputFile);
+
+                fwrite(&(pixelMap[i][j].green), sizeof(unsigned char),
+                1, outputFile);
+
+                fwrite(&(pixelMap[i][j].blue), sizeof(unsigned char),
+                1, outputFile);
+            }       
         }
+
+        //free pixelmap and tree
+        for (i = 0; i < image_size; i++) {
+            free(pixelMap[i]);
+        }
+        free(pixelMap);
+
+        for (i = 0; i <= arraySize; i++) {
+            free(quadArrayTree[i]);
+        }
+        free(quadArrayTree);
         
-
+        fclose(outputFile);
     }
-
-
 
     return 0;
 }
