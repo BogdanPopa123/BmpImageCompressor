@@ -1,16 +1,9 @@
-## Tema 2 - SDA
+## Bmp Image Compressor
 Popa Bogdan-Florin
-
-Timp de lucru - aproximativ 8 ore
-
-Punctaj checker local - 100/100
-
-Punctaj vmchecker - 100/100
-
 
 Mai intai am inceput prin a declara strcturile necesare pentru
 implementarea structurilor de date ce vor fi necesare in realizarea
-acestei teme:
+acestui task:
 
 * Structul Tree reprezinta un nod al arborelui cuaternar ce va fi
 folosit la compresia fisierului PPM
@@ -72,7 +65,7 @@ Pentru cerinta -c1 vom calcula statisticile cerute, iar pentru cerinta -c2
 vom scrie in fisierul de output, primit ca argument in linia de comanda,
 varianta comprimata a fisierului, in format binar.
 Dupa oricare dintre acceste doua cerinte eliberam memoria folosita pentru
-rezolvarea problemei
+rezolvarea taskului
 
 
 Pentru rezolvarea cerintei -d, construim arborele cu ajutorul unei
